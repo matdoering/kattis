@@ -113,6 +113,7 @@ double productivityIndex(double a, int s) {
     // s: nbr submitted papers
     assert(a <= s);
     assert(a >= 0 && s >=0);
+    std::cout << "accepted: " << a << "/" << s << std::endl;
     if (a == 0 || s == 0) {
         return 0.0;
     }
@@ -190,35 +191,50 @@ double solve(const std::vector<double>& probs) {
     return maxPrdIdx;
 }
 
-// we want an iterative algorithm to come up with the probabilities
-// p(k,n) for having k papers from n accepted
-// -> in every iteration we increase n and we cycle through all k's
+// Find the maximum expected research productivity index
+// by iteratively calculating Poisson binomial probabilities
+// (compare 'subsetProbability).
 //
+// Let p(n,k) denote the probability of having k papers of n accepted 
+// Let p denote the probability that an additional, i-th paper is accepted
+//
+// CASE 1: model prob that all papers are accepted, including paper i:
+//         p(n,n) = p(n-1, n-1) * p
+// -> this is P[0] in the algorithm
+// CASE 2: this implicitly generates all subsets by considering acceptance/failure of paper i:
+//         p(n,k) = p(n-1, k)*(1-p) + p(n-1, k-1)*p
+// -> the first term has already k successes, so paper i must fail
+// -> the second term has only k-1 successes, so paper i must succeed
+// CASE 3: model prob that all papers are rejected, including paper i
+//         p(n,0) = p(n-1, 0)*(1-p)
+// -> this is P[n] in the algorithm
 double solveFast(const std::vector<double>& probs) {
     // basis case: only 1 probability value provided as input
     double maxPrdIdx = probs[0] * productivityIndex(1, 1);
+    // set initial probabilities for finding a solution
+    // { p(1st paper chosen), p (1st paper not chosen) }
+    // P[i]: probability that n-i papers are accepted, given n papers
     std::vector<double> P = {probs[0], 1 - probs[0]}; // initial probabilities
     // all other cases:
     for (int n = 1; n < probs.size(); ++n) {
-        //std::cout << "n: " << n << std::endl;
+        std::cout << "n: " << n << std::endl;
         double curProb = probs[n];
-        std::vector<double> curProbs = {P[0] * curProb}; // prob of choosing the 1st elem
+        std::vector<double> curProbs = {P[0] * curProb}; // CASE 1
         for (int k = 0; k < n; ++k) {
-            // prob of choosing the  ... TODO
-            curProbs.push_back(P[k]*(1-curProb) + P[k+1] * curProb);
+            curProbs.push_back(P[k]*(1-curProb) + P[k+1]*curProb); // CASE 2
         }
-        curProbs.push_back(P[n]*(1-curProb));
-        /*
+        curProbs.push_back(P[n]*(1-curProb)); // CASE 3
         std::cout << "cur probs:" << std::endl;
         for (int i = 0; i < curProbs.size(); ++i) {
             std::cout << curProbs[i] << ", ";
         }
         std::cout << std::endl;
-        */
         P = curProbs; // update P
+        std::cout << "size P: " << P.size() << std::endl;
         double prdIdx = 0.0;
         for (int j =0; j < P.size(); ++j) { // j: nbr accepted papers
             prdIdx += (P[j] * productivityIndex(n+1-j, n+1)); // submitted nbr of papers i n+1
+            std::cout << "P was: " << P[j] << std::endl;
         }
         // std::cout << "prd idx is: " << prdIdx << std::endl;
         if (prdIdx > maxPrdIdx) {
@@ -242,6 +258,6 @@ int main(int argc, char** argv) {
     std::cout << std::setprecision(20) << expectedPrdIdx << std::endl;
     /*
     std::cout << "TEST" << std::endl;
-    std::cout << subsetProbability(probs, 1, 2) << std::endl;
+    std::cout << subsetProbability(probs, 2, 5) << std::endl;
     */
 }
