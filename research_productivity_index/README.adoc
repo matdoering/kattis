@@ -1,1 +1,30 @@
-Time limit reached at 11/26
+== Research Productivity Index
+
+In this problem, the question is as follows. Given a set of n papers with a known probability `p` of being accepted at a conference, what is the expected maximum research producitivity index `a^n` where a is the number of accepted papers and `n` is the number of submitted papers.
+
+=== Basic Solution Approach
+
+To solve the problem, we first sort the papers by decreasing p in order to have well-defined subsets of papers. Here,
+ the idea is that the subset with the largest overall probability is the one that is most likely to maximize the research productivity index.
+
+Since the paper probabilities define a Poisson binomial distribution, we can calculate the probability that `k` papers from a set of `n` submitted papers are accepted by considering all subsets of size `k`. We then simply sum up the probabilities obtained for each subset.
+
+However, generating the subsets is only feasible for very low values of `k`.
+
+=== Iterative Algorithm for Poisson Binomial Probabilities
+
+Let `p(n,k)` denote the probability of having `k` of `n` papers accepted. 
+Let `p` denote the known probability that a paper `i` is accepted.
+
+To iteratively calculate `p(n,k)`, we can distinguish three cases:
+
+- Paper `i` is accepted, as well as all other papers: `p(n,n) = p(n-1, n-1) * p`
+- Combinations of acceptance/rejection: `p(n,k) = p(n-1, k)*(1-p) + p(n-1, k-1)*p`
+- Paper `i` is rejected, as well as all other papers: `p(n,0) = p(n-1, 0)*(1-p)`
+
+Initially, we set:
+
+- `p(1,0) = 1-p`
+- `p(1,1) = p`
+
+We can then begin the calculations with `i = 2` and terminate when `i = n`.
