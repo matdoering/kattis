@@ -1,1 +1,7 @@
+:stem: 
+
+== Research Productivity Index
+
+stem:[a-b = c]
+
 Time limit reached at 11/26
