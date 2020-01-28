@@ -53,6 +53,28 @@ void smartSolve(std::string& s) {
         std::cout << "Bash" << std::endl;
     }
 }
+
+void interpretableSolve(std::string& s) {
+    std::string winner;
+    int N = s.size();
+    bool isEvenString = (N % 2) == 0;
+    if (isEvenString) {
+        if (s[0] == s[N-1]) {
+            // identical chars at beginning and end
+            winner = "Chikapu";
+        } else {
+            winner = "Bash"; // bash always wins for even-length strings where first and last char is different
+        }
+    } else {
+        if (s[0] == s[N-1]) {
+            winner = "Bash"; // bash always wins for odd-length strings where first and last chars are the same
+        } else {
+            winner = "Chikapu";
+        }
+    }
+    std::cout << winner << std::endl;
+}
+
 int main(int argc, char** argv) {
     // parse input
     int nbrSamples;
@@ -69,7 +91,8 @@ int main(int argc, char** argv) {
     //       moves that make two consecutive chars identical are not allowed
     for (size_t i = 0; i< samples.size(); ++i) {
         //trivialSolve(samples[i]);
-        smartSolve(samples[i]);
+        //smartSolve(samples[i]);
+        interpretableSolve(samples[i]);
 
     }
 }
