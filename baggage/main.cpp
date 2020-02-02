@@ -151,7 +151,6 @@ std::map<int, ElemType>::iterator Data::findPair(std::pair<ElemType, ElemType> p
     assert(sIt != data.end()); // element must exist
     assert(data.find(end) != data.end()); // element must exist
     auto eIt = std::next(data.find(end)); // closed interval to the right
-    //auto eIt = data.find(end); // open interval to the right
     for (; sIt != eIt; ++sIt) {
         if (sIt == data.end()) {
             break;
@@ -166,7 +165,7 @@ std::map<int, ElemType>::iterator Data::findPair(std::pair<ElemType, ElemType> p
             if (onLeftSide(sIt->first) && isInvalid(sIt, ElemType::B, foundPair, isLastMove)) {
                 // do not cause trouble on the left side
                 continue;
-            } else if (isInvalid(sIt, ElemType::A, foundPair, isLastMove)) {
+            } else if (!onLeftSide(sIt->first) && isInvalid(sIt, ElemType::A, foundPair, isLastMove)) {
                 // do not cause trouble on the right side
                 continue;
             }
@@ -264,14 +263,21 @@ int solveIter(Data& data, int stopIter,
         std::pair<ElemType, ElemType> item;
         if (data.onLeftSide(lastSource)) {
             // empty cells on the left side -> search on the right side
-            s = data.startOfRightSide;
-            e = data.K;
             item = item1;
+            s = data.startOfRightSide; // TODO original def
+            /*
+            if (item.first == ElemType::B && item.second == ElemType::A) {
+                s = data.startOfRightSide;
+            } else {
+                s = data.startOfRightSide +1;
+            }
+            */
+            e = data.K;
         } else {
             // empty cells on the right side -> search on the left side
+            item = item2;
             s = -1;
             e = data.startOfRightSide -1;
-            item = item2;
         }
         bool isLastMoveInPhase = moveIters+1 == stopIter;
         auto pairIt = data.findPair(item, s, e, isLastMoveInPhase);
