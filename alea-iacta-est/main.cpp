@@ -9,7 +9,7 @@
 #include <iterator>
 #include <map>
 #include <sstream>
-
+#include <algorithm>
 
 #define DEBUG 1
 
@@ -71,15 +71,17 @@ int scoreRepetition(const std::vector<int>& rolls, int repeatedValue) {
 
 int scoreSequence(const std::vector<int>& rolls) {
     int score = 0;
-    for (int i = 0; i < rolls.size(); ++i) {
-        if (i != rolls.size() - 1) {
-            if (rolls[i+1] - rolls[i] != 1) {
+    std::vector<int> orderedVec(rolls.begin(), rolls.end());
+    std::sort(orderedVec.begin(), orderedVec.end());
+    for (int i = 0; i < orderedVec.size(); ++i) {
+        if (i != orderedVec.size() - 1) {
+            if (orderedVec[i+1] - orderedVec[i] != 1) {
                 // not a sequence
                 score = 0;
                 break;
             }
         } 
-        score += rolls[i];
+        score += orderedVec[i];
     }
     return score;
 }
@@ -350,11 +352,15 @@ void test() {
     // test rolls
     std::vector<int> test = {1,3,5,1,4};
     std::vector<int> testSeq = {1,2,3,4,5};
+    std::vector<int> testSeq2 = {3,4,5,2,1};
+    std::vector<int> testSeq3 = {3,3,4,5,2};
     std::vector<int> testFH = {1,3,1,3,1};
     std::vector<int> testMultiple = {1,1,1,1,1};
     std::vector<int> testMultiple2 = {1,1,1,1,5};
     scoreRoll(test, Combination::ONES);
     std::cout << scoreSequence(testSeq) << std::endl;
+    std::cout << scoreSequence(testSeq2) << std::endl;
+    std::cout << scoreSequence(testSeq3) << std::endl;
     std::cout << scoreFullHouse(testFH) << std::endl;
     std::cout << scoreMultipleOfAKind(testMultiple, 5)<< std::endl;
     std::cout << scoreMultipleOfAKind(testMultiple2, 4)<< std::endl;
@@ -372,6 +378,6 @@ int main(int argc, char** argv) {
         solveScenario(s);
         break; // only solve one scenario, TODO
     }
-    //test();
+    test();
     return 0;
 }
