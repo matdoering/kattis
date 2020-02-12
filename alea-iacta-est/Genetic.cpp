@@ -39,7 +39,36 @@ std::ostream& operator<<(std::ostream& os, const Chromosome& c) {
         int shift = interval.second - interval.first + 1;
         os << std::string(shift, symbol);
     }
+    os << "\nScore: " << c.fitness;
     return os;
+}
+
+void Chromosome::mutate(double mutProb, const std::vector<int>& diceSequence) {
+    //TODO: implement me
+    bool wasMutated = false;
+    for (int i = 0; i < chrom.size(); ++i) {
+        if (randProb() <= mutProb) {
+            // (randomly) mutate a valid position in the chromosome
+            int selectedChromosome = rand() % 11 + 1;
+            const auto& interval = intervals[selectedChromosome];
+            int selectedIdx = rand() % (interval.second - interval.first + 1) + interval.first; // idx within range, TODO: use uniform int distribution
+            //std::cout << "interval: " << interval.first << "," << interval.second << ", choice: " << selectedIdx << std::endl;
+            // again: two cases: 1. remove a bit -> need to expand intervals of gene group to the left. 2. add a bit -> need to reduce intervals of gene group.
+            // TODO: mutations need to be within the rules of the game:
+            // per gene group we can have at most 10 0's -> check when changing a 1 to a 0
+            // per chromosome, we need _exactly_ 55 1's. so, we cant just add/remove a single 1 to be in a valid state...
+            // idea: add a 1, remove a 1, if possible. problem: 11111 -> no change possible here
+            // for 101111: would need to change to 1|1|1111, then remove a random 1, e.g.: 1|1|1101
+            // other approach: if we remove a 1 -> gene group needs to expand
+            // if we remove a 1 -> gene group needs to contract
+            // TODO: still need to remove/add a 1 to fix the chromosome's number of 1's
+            wasMutated = true;
+        }
+    }
+    if (wasMutated) {
+        // remember to update the fitness score of the chromosome if it has been mutated
+        score(diceSequence);
+    }
 }
 
 void Chromosome::shiftLeft(int geneGroup, int by) {
@@ -107,26 +136,28 @@ void Chromosome::replaceGeneGroup(int geneGroup, const Chromosome& other) {
 }
 
 /// selects [s,e] from chromosome p 1, takes the rest from chromosome p2
-Chromosome createChild(const Chromosome& p1, const Chromosome& p2, int s, int e) {
+Chromosome createChild(const Chromosome& p1, const Chromosome& p2, int s, int e, const std::vector<int>& diceSequence) {
     Chromosome child = p2;  
     for (int geneGroup = s; geneGroup <= e; ++geneGroup) {
         child.replaceGeneGroup(geneGroup, p1);
     }
+    child.score(diceSequence);
     return child;
 }
 
-void recombine(const Chromosome& chrom1, const Chromosome& chrom2) {
+std::vector<Chromosome> recombine(const Chromosome& chrom1, const Chromosome& chrom2, const std::vector<int>& diceSequence) {
     // 1. select breakpoint in chromosome in terms of combi idx (1 to 10)
     int bp = rand() % 10 + 1;
     std::cout << "bp at: " << bp << ", parents are: " << std::endl;
     std::cout << chrom1 << std::endl;
     std::cout << chrom2 << std::endl;
     // 2. produce children
-    Chromosome c1 = createChild(chrom1, chrom2, bp+1, 11);
-    Chromosome c2 = createChild(chrom1, chrom2, 1, bp);
+    Chromosome c1 = createChild(chrom1, chrom2, bp+1, 11, diceSequence);
+    Chromosome c2 = createChild(chrom1, chrom2, 1, bp, diceSequence);
     std::cout << "children are:" << std::endl;
     std::cout << c1 << std::endl;
     std::cout << c2 << std::endl;
+    return {c1, c2};
 }
 
 int scoreChromosome(Chromosome& chrom, const std::vector<int>& diceSequence) {
@@ -156,15 +187,21 @@ int scoreChromosome(Chromosome& chrom, const std::vector<int>& diceSequence) {
                 }
             }
             totalScore += maxScore;
-            combisToConsider.erase(std::find(combisToConsider.begin(), combisToConsider.end(), selCombi));
+            auto usedCombiIt = std::find(combisToConsider.begin(), combisToConsider.end(), selCombi);
+            if (usedCombiIt != combisToConsider.end()) { // TODO: investigate when this occurs / rewrite algo
+                combisToConsider.erase(usedCombiIt);
+            }
             roll.clear();
             rollNbr += 1;
-            std::cout << "rollNbr: " << rollNbr << ", score: " << totalScore << std::endl;
+            //std::cout << "rollNbr: " << rollNbr << ", score: " << totalScore << std::endl;
         }
     }
     return totalScore;
 }
 
+void Chromosome::score(const std::vector<int>& diceSequence) {
+    fitness = scoreChromosome(*this, diceSequence);
+}
 
 Chromosome createChromosome(const std::vector<int>& diceSequence) {
     int nbrOfOnes = 11*5; 
@@ -231,6 +268,9 @@ Chromosome createChromosome(const std::vector<int>& diceSequence) {
         i = newi;
     }
     chrom.chrom = chromosome; 
+
+    // determine score of chromosome
+    chrom.score(diceSequence);
     return chrom;
 }
 
@@ -243,10 +283,53 @@ std::vector<Chromosome> initializePopulation(const std::vector<int>& diceSequenc
     return pop;
 }
 
+void printPopulation(const std::vector<Chromosome>& population) {
+    for (const auto& c : population) {
+        std::cout << c << std::endl;
+    }
+}
+
+bool compareChromosome(const Chromosome& c1, const Chromosome& c2) {
+    return c1.fitness > c2.fitness;
+}
+
+void removeLeastFit(std::vector<Chromosome>& population, int nRemove) {
+    // ... could also have the population be always sorted (prio queue) .. TODO?
+    sort(population.begin(), population.end(), compareChromosome);
+    population.erase(population.end()-nRemove, population.end());
+}
+
+void mutate(std::vector<Chromosome>& population, double mutProb, const std::vector<int>& diceSequence) {
+    for (Chromosome& c : population) {
+        c.mutate(mutProb, diceSequence);
+    }
+}
+
 void solveGenetic(const std::vector<int>& diceSequence, GParams params) {
-    Chromosome chrom = createChromosome(diceSequence);
-    std::cout << chrom << std::endl;
-    std::vector<Chromosome> chromosomes = initializePopulation(diceSequence, params.populationSize);
-    recombine(chromosomes[0], chromosomes[1]);
-    // int score = scoreChromosome(chrom, diceSequence);
+    std::vector<Chromosome> population = initializePopulation(diceSequence, params.populationSize);
+    std::cout << "Population initialized!" << std::endl << std::flush;
+    /////// START
+    while (true) { // TODO: stop based on change in fitness between iterations and nbr of iterations
+        // 1. Recombination
+        // select random pair of parents
+        std::cout << "Population size is: " << population.size() << std::endl;
+        int idx1 = rand() % population.size();
+        int idx2 = rand() % population.size(); // TODO: re-choose if the same
+        std::vector<Chromosome> children = recombine(population[idx1], population[idx2], diceSequence);
+        // add children to population
+        for (const auto& c : children) {
+            population.push_back(c);
+        }
+        //printPopulation(population);
+        // 2. Mutation
+        mutate(population, params.mutationProb, diceSequence);
+
+        // 3. Selection
+        // Idea: just remove the least fit individual(s). for constant population size: always remove the 2 least fit members
+        // TODO use this as param in GParams
+        int nRemove = 2;
+        removeLeastFit(population, nRemove); // TODO: improve scoring
+
+        std::cout << "ITERATION DONE" << std::endl << std::flush; 
+    }
 }

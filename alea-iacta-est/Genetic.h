@@ -18,12 +18,14 @@ using chromT = std::bitset<15*11>;
  * e.g. |01100111| has the interval [0, 7]
  */ 
 struct Chromosome {
-    chromT chrom; /// the vector of dice rolls (1/0)
+    chromT chrom; /// the vector of dice rolls (1/0) representing the chromosome
     std::unordered_map<int, std::pair<int,int>> intervals; // map from combination (1 to 11) to closed interval in the dice sequence ('chrom')
+    int fitness; // fitness in terms of yahtzee points earned
     void replaceGeneGroup(int geneGroup, const Chromosome& other); // replaces geneGroup with gene group from other
     void shiftLeft(int geneGroup, int by); // shift entries to the left which are greater than gene group
     void shiftRight(int geneGroup, int by); // shift entries to the right which are greater than gene group
-
+    void score(const std::vector<int>& diceSequence); // determine fitness
+    void mutate(double mutProb, const std::vector<int>& diceSequence); // mutates each gene with 'mutProb' probability
 };
 
 std::ostream& operator<<(std::ostream& os, const Chromosome& c);
@@ -35,7 +37,7 @@ std::ostream& operator<<(std::ostream& os, const Chromosome& c);
 // -> need to have a function to select the blocks (5 grouping) ...
 // blocks are dynamic so this is just a getter: getblock(int blockNr) -> interval (i,j)
 
-void recombine(const Chromosome& chrom1, const Chromosome& chrom2);
+std::vector<Chromosome> recombine(const Chromosome& chrom1, const Chromosome& chrom2, const std::vector<int>& diceSequence);
     // select recombination idx (consider position of leftmost 1 in both strings)
     // modify recombination idx: ensure that 5 genes are transferred
     // output offspring chromosomes
@@ -70,7 +72,8 @@ struct GState{
 
 /* Params for genetic algorithm*/
 struct GParams {
-    int populationSize = 50;
+    int populationSize = 50;    // initial population size
+    double mutationProb = 0.01; // probability for each position in the chromosome that a mutation occurs in a generation
 };
 
 

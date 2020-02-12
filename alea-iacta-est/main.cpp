@@ -151,7 +151,7 @@ void solveScenario(const Scenario& scenario) {
     Roll rollSequence(diceSequence);
     //solveArbitrarily(rollSequence);
     solveGreedily(diceSequence);
-    GParams params = {50};
+    GParams params = {50, 0.01};
     solveGenetic(diceSequence, params);
     //solveVeryGreedily(diceSequence); // score: 49
     /*

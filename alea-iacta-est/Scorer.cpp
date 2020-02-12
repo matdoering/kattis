@@ -87,8 +87,8 @@ int scoreMultipleOfAKind(const std::vector<int>& rolls, int N) {
 int scoreRoll(const std::vector<int>& rolls, Combination combi) {
     assert(rolls.size() == 5 && "Must use 5 dice per roll!");
 
-    std::cout << "scoreRoll() for: " << combi << std::endl;
-    printRoll(rolls);
+    //std::cout << "scoreRoll() for: " << combi << std::endl;
+    //printRoll(rolls);
     switch (combi) {
         case Combination::ONES:
         case Combination::TWOS:
