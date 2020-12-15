@@ -43,27 +43,47 @@ std::ostream& operator<<(std::ostream& os, const Chromosome& c) {
     return os;
 }
 
-void Chromosome::mutate(double mutProb, const std::vector<int>& diceSequence) {
+//int selectedIdx = rand() % (interval.second - interval.first + 1) + interval.first; // idx within range, TODO: use uniform int distribution
+// again: two cases: 1. remove a bit -> need to expand intervals of gene group to the left. 2. add a bit -> need to reduce intervals of gene group.
+// TODO: mutations need to be within the rules of the game:
+// per gene group we can have at most 10 0's -> check when changing a 1 to a 0
+// per chromosome, we need _exactly_ 55 1's. so, we cant just add/remove a single 1 to be in a valid state...
+// idea: add a 1, remove a 1, if possible. problem: 11111 -> no change possible here
+// for 101111: would need to change to 1|1|1111, then remove a random 1, e.g.: 1|1|1101
+// other approach: if we remove a 1 -> gene group needs to expand
+// if we remove a 1 -> gene group needs to contract
+// TODO: still need to remove/add a 1 to fix the chromosome's number of 1's
+void Chromosome::mutateWithin(double mutProb, const std::vector<int>& diceSequence) {
     //TODO: implement me
     bool wasMutated = false;
-    for (int i = 0; i < chrom.size(); ++i) {
-        if (randProb() <= mutProb) {
-            // (randomly) mutate a valid position in the chromosome
-            int selectedChromosome = rand() % 11 + 1;
-            const auto& interval = intervals[selectedChromosome];
-            int selectedIdx = rand() % (interval.second - interval.first + 1) + interval.first; // idx within range, TODO: use uniform int distribution
-            //std::cout << "interval: " << interval.first << "," << interval.second << ", choice: " << selectedIdx << std::endl;
-            // again: two cases: 1. remove a bit -> need to expand intervals of gene group to the left. 2. add a bit -> need to reduce intervals of gene group.
-            // TODO: mutations need to be within the rules of the game:
-            // per gene group we can have at most 10 0's -> check when changing a 1 to a 0
-            // per chromosome, we need _exactly_ 55 1's. so, we cant just add/remove a single 1 to be in a valid state...
-            // idea: add a 1, remove a 1, if possible. problem: 11111 -> no change possible here
-            // for 101111: would need to change to 1|1|1111, then remove a random 1, e.g.: 1|1|1101
-            // other approach: if we remove a 1 -> gene group needs to expand
-            // if we remove a 1 -> gene group needs to contract
-            // TODO: still need to remove/add a 1 to fix the chromosome's number of 1's
-            wasMutated = true;
+    for (int i = 1; i <= 11; ++i) { // choose gene group (combination)
+        if (randProb() > mutProb) {
+            continue;
         }
+        const auto& interval = intervals[i];
+        // check whether mutation within is possible -> at least one 0 needs to exist to allow for balance (same no of 1's remain)
+        std::vector<int> zeroIdx; 
+        std::vector<int> oneIdx;
+        for (int j = interval.first; j <= interval.second; ++j) {
+            if (chrom.test(j)) {
+                oneIdx.push_back(j);
+            } else {
+                zeroIdx.push_back(j);
+            }
+        }
+        if (zeroIdx.size() == 0) {
+            // all 1's -> cannot mutate anything within gene group
+            continue;
+        }
+        // select idx to mutate
+        int mutIdxZero = rand() % zeroIdx.size(); // change from 0 -> 1
+        int mutIdxOne = rand() % oneIdx.size(); // change from 1 -> 0
+        assert(!chrom.test(zeroIdx[mutIdxZero]));
+        assert(chrom.test(oneIdx[mutIdxOne]));
+        chrom.set(zeroIdx[mutIdxZero], true);
+        chrom.set(oneIdx[mutIdxOne], false);
+        wasMutated = true;
+        // std::cout << "Mutated!" << std::endl;
     }
     if (wasMutated) {
         // remember to update the fitness score of the chromosome if it has been mutated
@@ -148,19 +168,22 @@ Chromosome createChild(const Chromosome& p1, const Chromosome& p2, int s, int e,
 std::vector<Chromosome> recombine(const Chromosome& chrom1, const Chromosome& chrom2, const std::vector<int>& diceSequence) {
     // 1. select breakpoint in chromosome in terms of combi idx (1 to 10)
     int bp = rand() % 10 + 1;
-    std::cout << "bp at: " << bp << ", parents are: " << std::endl;
-    std::cout << chrom1 << std::endl;
-    std::cout << chrom2 << std::endl;
     // 2. produce children
     Chromosome c1 = createChild(chrom1, chrom2, bp+1, 11, diceSequence);
     Chromosome c2 = createChild(chrom1, chrom2, 1, bp, diceSequence);
+    /*
+    std::cout << "bp at: " << bp << ", parents are: " << std::endl;
+    std::cout << chrom1 << std::endl;
+    std::cout << chrom2 << std::endl;
+
     std::cout << "children are:" << std::endl;
     std::cout << c1 << std::endl;
     std::cout << c2 << std::endl;
+    */
     return {c1, c2};
 }
 
-int scoreChromosome(Chromosome& chrom, const std::vector<int>& diceSequence) {
+int scoreChromosomeOld(Chromosome& chrom, const std::vector<int>& diceSequence) {
     // scoring: find best mapping of combination to selected dice and output resulting score
     // greedy: TODO: better -> Find max combi, then next best, then next best .. in global seq
     chromT chromosome = chrom.chrom;
@@ -199,8 +222,47 @@ int scoreChromosome(Chromosome& chrom, const std::vector<int>& diceSequence) {
     return totalScore;
 }
 
+// greedy scoring for each combination
 void Chromosome::score(const std::vector<int>& diceSequence) {
-    fitness = scoreChromosome(*this, diceSequence);
+    std::vector<int> remainingGeneGroups(11);
+    std::iota(remainingGeneGroups.begin(), remainingGeneGroups.end(), 1);
+    int totalScore = 0;
+    // order combinations from highest constraints/gain to lowest
+    // order has an extremely high impact (e.g. shift of max score from 120 to 180 in genetic algo)
+    std::vector<Combination> combinations = {Combination::FIVE_OF_A_KIND,
+        Combination::FOUR_OF_A_KIND, Combination::FULL_HOUSE,
+        Combination::SEQUENCE, Combination::SIXES, Combination::FIVES,
+        Combination::FOURS, Combination::THREES, Combination::TWOS,
+        Combination::ONES, Combination::CHANCE};
+    for (int combiId = 0; combiId < combinations.size(); ++combiId) {
+        Combination combi = combinations[combiId];
+        int maxScore = 0;
+        int selGeneGroup = 0;
+        for (int i = 0; i < remainingGeneGroups.size(); ++i) {
+            int geneGroup = remainingGeneGroups[i];
+            const auto& interval = intervals[geneGroup];
+            std::vector<int> sel(diceSequence.begin() + interval.first, diceSequence.begin() + interval.second + 1);
+            std::vector<int> roll;
+            for (int j = interval.first; j <= interval.second; ++j) {
+                if (chrom.test(j)) {
+                    roll.push_back(diceSequence[j]);
+                }
+            }
+            //printRoll(roll);
+            int score = scoreRoll(roll, combi);
+            if (score >= maxScore) {
+                maxScore = score;    
+                selGeneGroup = geneGroup;
+            }
+        }
+        if (maxScore != 0) {
+            // if combi cannot be found (score: 0) -> keep selected set in remaining groups to use these dice in a more meaningful way
+            remainingGeneGroups.erase(std::find(remainingGeneGroups.begin(), remainingGeneGroups.end(), selGeneGroup));
+        }
+        //std::cout << "Max score for combination " << combi << " was: " << maxScore << std::endl;
+        totalScore += maxScore;
+    }
+    fitness = totalScore;
 }
 
 Chromosome createChromosome(const std::vector<int>& diceSequence) {
@@ -299,37 +361,38 @@ void removeLeastFit(std::vector<Chromosome>& population, int nRemove) {
     population.erase(population.end()-nRemove, population.end());
 }
 
-void mutate(std::vector<Chromosome>& population, double mutProb, const std::vector<int>& diceSequence) {
+void mutateWithin(std::vector<Chromosome>& population, double mutProb, const std::vector<int>& diceSequence) {
     for (Chromosome& c : population) {
-        c.mutate(mutProb, diceSequence);
+        c.mutateWithin(mutProb, diceSequence);
     }
 }
 
 void solveGenetic(const std::vector<int>& diceSequence, GParams params) {
     std::vector<Chromosome> population = initializePopulation(diceSequence, params.populationSize);
     std::cout << "Population initialized!" << std::endl << std::flush;
+    int iteration = 0;
     /////// START
     while (true) { // TODO: stop based on change in fitness between iterations and nbr of iterations
         // 1. Recombination
         // select random pair of parents
-        std::cout << "Population size is: " << population.size() << std::endl;
+        //std::cout << "Population size is: " << population.size() << std::endl;
+        //printPopulation(population);
         int idx1 = rand() % population.size();
         int idx2 = rand() % population.size(); // TODO: re-choose if the same
         std::vector<Chromosome> children = recombine(population[idx1], population[idx2], diceSequence);
+        // 2. Mutation on children
+        mutateWithin(children, params.mutationProb, diceSequence);
         // add children to population
         for (const auto& c : children) {
             population.push_back(c);
         }
-        //printPopulation(population);
-        // 2. Mutation
-        mutate(population, params.mutationProb, diceSequence);
 
         // 3. Selection
         // Idea: just remove the least fit individual(s). for constant population size: always remove the 2 least fit members
         // TODO use this as param in GParams
         int nRemove = 2;
         removeLeastFit(population, nRemove); // TODO: improve scoring
-
-        std::cout << "ITERATION DONE" << std::endl << std::flush; 
+        iteration += 1;
+        std::cout << "Iteration " << iteration << ", max fitness: " << population[0].fitness << std::endl;
     }
 }

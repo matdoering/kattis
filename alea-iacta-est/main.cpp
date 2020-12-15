@@ -2,6 +2,7 @@
 #include "Roll.h"
 #include "Scorer.h"
 #include "Genetic.h"
+#include "ILP.h"
 
 #include <iostream>
 #include <cassert>
@@ -150,9 +151,10 @@ void solveScenario(const Scenario& scenario) {
     auto diceSequence = determineDiceSequence(rng);
     Roll rollSequence(diceSequence);
     //solveArbitrarily(rollSequence);
-    solveGreedily(diceSequence);
-    GParams params = {50, 0.01};
-    solveGenetic(diceSequence, params);
+    //solveGreedily(diceSequence);
+    //GParams params = {50, 0.01};
+    //solveGenetic(diceSequence, params);
+    ILPSolver ilpSolver(diceSequence);
     //solveVeryGreedily(diceSequence); // score: 49
     /*
     rollSequence.roll();

@@ -25,7 +25,8 @@ struct Chromosome {
     void shiftLeft(int geneGroup, int by); // shift entries to the left which are greater than gene group
     void shiftRight(int geneGroup, int by); // shift entries to the right which are greater than gene group
     void score(const std::vector<int>& diceSequence); // determine fitness
-    void mutate(double mutProb, const std::vector<int>& diceSequence); // mutates each gene with 'mutProb' probability
+    void mutateWithin(double mutProb, const std::vector<int>& diceSequence); // mutates gene group with 'mutProb' probability
+    // TODO: mutateAnywhere() | may change reading frame
 };
 
 std::ostream& operator<<(std::ostream& os, const Chromosome& c);
@@ -58,7 +59,6 @@ std::vector<Chromosome> recombine(const Chromosome& chrom1, const Chromosome& ch
     // offspring 2:
     // >06 from other|06|05|04|03|02|01
 
-int scoreChromosome(Chromosome& chromosome, const std::vector<int>& diceSequence);
 Chromosome createChromosome(const std::vector<int>& diceSequence);
 
 /* Defines an initial population of chromosomes*/
